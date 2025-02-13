@@ -26,7 +26,7 @@ import (
 	"knative.dev/kn-plugin-quickstart/pkg/install"
 )
 
-var kubernetesVersion = "kindest/node:v1.28.7"
+var kubernetesVersion = "kindest/node:v1.31.4"
 var clusterName string
 var kindVersion = 0.20
 var container_reg_name = "kind-registry"
