@@ -116,6 +116,20 @@ func SetUp(
 				return fmt.Errorf("❌ install eventing: %w", err)
 			}
 		}
+		if err := enableMetricsServer(); err != nil {
+			return fmt.Errorf("❌ enabling metrics-server addon: %w", err)
+		}
+		fmt.Println("✅ metrics-server addon enabled")
+
+		if err := installPrometheusCRDs(); err != nil {
+			return fmt.Errorf("❌ installing Prometheus CRDs: %w", err)
+		}
+		fmt.Println("✅ Prometheus CRDs for ServiceMonitor & PodMonitor applied")
+
+		if err := installPrometheusMonitoring(); err != nil {
+			return fmt.Errorf("❌ applying ServiceMonitor bundle: %w", err)
+		}
+		fmt.Println("✅ Knative ServiceMonitors applied")
 	}
 
 	if err := listAllPods(); err != nil {
@@ -558,4 +572,37 @@ func configureKnativeIngress() error {
 	fmt.Println("    ✅ Knative is now using Kourier as the only ingress class.")
 
 	return nil
+}
+
+func enableMetricsServer() error {
+	fmt.Println("🔌 Enabling metrics-server addon...")
+	cmd := exec.Command("minikube", "addons", "enable", "metrics-server", "--profile", config.clusterName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to enable metrics-server: %w", err)
+	}
+	return nil
+}
+
+func installPrometheusCRDs() error {
+	fmt.Println("🛠 Installing Prometheus ServiceMonitor CRD...")
+	urls := []string{
+		"https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml",
+		"https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml",
+	}
+	for _, u := range urls {
+		cmd := exec.Command("kubectl", "apply", "-f", u)
+		if err := runCommandWithOutput(cmd); err != nil {
+			return fmt.Errorf("failed to apply CRD %s: %w", u, err)
+		}
+	}
+	return nil
+}
+
+func installPrometheusMonitoring() error {
+	const smURL = "https://raw.githubusercontent.com/knative-extensions/monitoring/main/servicemonitor.yaml"
+	fmt.Println("📊 Applying Knative ServiceMonitor bundle")
+	cmd := exec.Command("kubectl", "apply", "-f", smURL)
+	return runCommandWithOutput(cmd)
 }
